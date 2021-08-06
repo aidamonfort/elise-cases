@@ -1,0 +1,257 @@
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"> </script>
+<script src="papaparse.min.js"> </script>
+
+<form class="form-inline">
+    <!-- <div class="form-group">
+        <label for="files">Upload a CSV formatted file:</label>
+        <input type="file" id="files" class="form-control" accept=".csv" required />
+    </div>
+    <div class="form-group">
+        <label for="nuts">Upload a CSV Nuts labels:</label>
+        <input type="file" id="nuts" class="form-control" accept=".csv" required />
+    </div>
+    <div class="form-group">
+        <button type="submit" id="submit-file" class="btn btn-primary">Upload File</button>
+    </div> -->
+
+    <div class="row">
+        <div class="row" id="parsed_csv_list">
+        </div>
+    </div>
+</form>
+
+<script type="text/javascript">
+    /*     $(document).ready(function () {
+            $('#submit-file').on("click", function (e) {
+                e.preventDefault();
+                $('#files').parse({
+                    config: {
+                        delimiter: "auto",
+                        complete: displayJSON,
+                    },
+                    before: function (file, inputElem) {
+                        console.log("Parsing file...", file);
+                    },
+                    error: function (err, file) {
+                        console.log("ERROR:", err, file);
+                    },
+                    complete: function () {
+                        console.log("Done with all files");
+                    }
+                });
+            }); */
+
+
+   // var files = ["Elise-cases3.csv", "NUTS_AT_2021_EN.csv", "LAU_CODES.csv"];
+     var files = ["Elise_projects_EU-missing.csv", "NUTS_AT_2021_EN.csv", "LAU_CODES.csv"];
+    var allResults = [];
+
+    for (var i = 0; i < files.length; i++) {
+        Papa.parse(files[i], {
+            download: true,
+            header: false,
+            quoteChar: "'",
+            skipEmptyLines: true,
+            error: function (err, file, inputElem, reason) { 
+                console.log('Parse error: ' + err, inputElem, reason); 
+
+             },
+            complete: function (results) {
+                allResults.push(results);
+                if (allResults.length == files.length) {
+                    console.log(allResults);
+                    displayJSON(allResults);
+                }
+            }
+        });
+    }
+
+
+    function displayJSON(allResults) {
+        var data = allResults[0].data;
+        var nuts = allResults[1].data;
+        var lau = allResults[2].data;
+        if (allResults[0].length > allResults[1].length) {
+            data = allResults[1].data;
+            nuts = allResults[0].data;
+        }
+
+        var json = '<div>';
+        json += '[';
+        for (i = 2; i < data.length; i++) { // First two rows are headings
+            var row = data[i];
+            var cells = row.join(",").split(",");
+            json += '<br> { "_id": { <br> "$oid": "' + i + '" <br>  }, <br> "name": "';
+            json += cells[2];  // name
+            json += '", <br> "source": " ';
+            json += cells[1].trim();  // source
+            json += '", <br> "description": " ';
+            json += cells[1].trim();  // source
+            json += '", <br> "pub_date": " ';
+            json += cells[3];  // pub_date  
+            json += '", <br> "geographic_extent": [ [ ';
+
+            if (cells[28] != '') {
+
+                var countries = cells[29].split(';');
+                countries.forEach(c => {
+                    var foundNuts0 = false;
+                    for (var j = 1; j < nuts.length; j++) {
+                        if (c.trim() == nuts[j][7]) {
+                            if (!foundNuts0) {
+                                json += '"' + nuts[j][1] + '"';
+                                foundNuts0 = true;
+                            }
+                        }
+                    }
+                    if (!foundNuts0) {
+                        console.log("Not found NUTS 0: " + c);
+                    }
+                });
+
+            }
+
+            if (cells[32] != '') {
+                var regions = cells[33].split(';');
+                regions.forEach(r => {
+                    var foundNuts1 = false;
+                    for (var j = 1; j < nuts.length; j++) {
+                        if (r.trim() == nuts[j][2]) {
+                            if (!foundNuts1) {
+                                json += ', "' + nuts[j][1] + '"';
+                                foundNuts1 = true;
+                            }
+                        }
+                    }
+                    if (!foundNuts1) {
+                        console.log("Not found NUTS 2: " + r);
+                    }
+                });
+            }
+
+            if (cells[34] != '') {
+                var subregions = cells[35].split(';');
+                subregions.forEach(r => {
+                    var foundNuts2 = false;
+                    for (var j = 1; j < nuts.length; j++) {
+                        if (r.trim().replaceAll('.', ',') == nuts[j][2] || r.trim() == nuts[j][2]) {
+                            if (!foundNuts2) {
+                                json += ', "' + nuts[j][1] + '"';
+                                foundNuts2 = true;
+                            }
+                        }
+                    }
+                    if (!foundNuts2) {
+                        console.log("Not found NUTS 3: " + r);
+                    }
+                });
+            }
+
+            if (cells[36] != '') {
+                var cities = cells[37].split(';');
+                cities.forEach(c => {
+                    var foundLAU = false;
+                    for (var j = 1; j < lau.length; j++) {
+                        if (c.trim().replaceAll('.', ',') == lau[j][2] || c.trim() == lau[j][2]) {
+                            if (!foundLAU) {
+                                json += ', "' + lau[j][1] + '"';
+                                foundLAU = true;
+                            }
+                        }
+                    }
+                    if (!foundLAU) {
+                        console.log("Not found LAU: " + c);
+                    }
+                });
+            }
+
+            json += '] ], <br> "emerging_tech": [ ';
+            cells[15] == '1' ? json += '"Artificial Intelligence and Machine Learning", ' : null;
+            cells[16] == '1' ? json += '"Cloud Native Computing", ' : null;
+            cells[17] == '1' ? json += '"Edge Computing", ' : null;
+            cells[18] == '1' ? json += '"Blockchain", ' : null;
+            cells[19] == '1' ? json += '"Immersive Visualisation(VR, MR, AR)", ' : null;
+            cells[20] == '1' ? json += '"Connected Autonomous Vehicles", ' : null;
+            cells[21] == '1' ? json += '"UxS / Drones", ' : null;
+            cells[22] == '1' ? json += '"Urban Digital Twins", ' : null;
+            cells[23] == '1' ? json += '"5G Cellular", ' : null;
+            json += ' ] ';
+            json += ', <br> "tech_readiness_level": ';
+            cells[24] == '1' ? json += '1 ' : null;
+            cells[25] == '1' ? json += '2 ' : null;
+            cells[26] == '1' ? json += '3 ' : null;
+            cells[27] == '1' ? json += '4 ' : null;
+            cells[24] != '1' && cells[25] != '1' && cells[26] != '1' && cells[27] != '1' ? json += '0 ' : null;
+            json += ', <br> "scope": ';
+            cells[36] == '1' ? json += '"regional" ' : json += ' "local"';  // LAU level
+            json += ', <br> "public_value": [ ';
+            json += '[ ';  // Operational
+            cells[39] == '1' ? json += '"Collaboration", ' : null;
+            cells[40] == '1' ? json += '"Effectiveness", ' : null;
+            cells[41] == '1' ? json += '"Efficiency", ' : null;
+            cells[42] == '1' ? json += '"User-Oriented", ' : null;
+            json += ' ], ';
+            json += '[ ';  // Political
+            cells[44] == '1' ? json += '"Transparency", ' : null;
+            cells[45] == '1' ? json += '"Accountability", ' : null;
+            cells[46] == '1' ? json += '"Citizen Participation", ' : null;
+            cells[47] == '1' ? json += '"Equity in accessibility", ' : null;
+            cells[48] == '1' ? json += '"Openness", ' : null;
+            cells[49] == '1' ? json += '"Economic Development", ' : null;
+            json += ' ], ';
+            json += '[ ';  // Social
+            cells[51] == '1' ? json += '"Trust", ' : null;
+            cells[52] == '1' ? json += '"Self Development", ' : null;
+            cells[53] == '1' ? json += '"Quality of life", ' : null;
+            cells[54] == '1' ? json += '"Inclusiveness", ' : null;
+            cells[55] == '1' ? json += '"Environmental sustainability", ' : null;
+            json += ' ] ]';
+            json += ', <br> "theme_area": [';
+            var areas = cells[6].split(';');
+            areas.forEach(a => {
+                json += a + ',';
+            });
+            json += ' ]';
+            //  json += ', <br> "more_info": "'; // --> TODO
+            //   json += cells[59];  // more_info
+            json += ', <br> "tech_trend": [ ';
+            cells[7] == '1' ? json += '"Location & Position", ' : null;
+            cells[8] == '1' ? json += '"Spatial-Temporal Models", ' : null;
+            cells[9] == '1' ? json += '"Data Science", ' : null;
+            cells[10] == '1' ? json += '"Human Interfaces", ' : null;
+            cells[11] == '1' ? json += '"Physical Geosciences", ' : null;
+            cells[12] == '1' ? json += '"Societal Geosciences", ' : null;
+            cells[13] == '1' ? json += '"Sensing and Observations", ' : null;
+            cells[14] == '1' ? json += '"Computer Engineering", ' : null;
+            json += ' ] <br> }, ';
+        }
+        json += "]";
+        json += "</div>";
+
+        var rep_json = json.replaceAll(',  ]', ' ]');
+        var rep2_json = rep_json.replaceAll('}, ]', '}]');
+
+        $("#parsed_csv_list").html(rep2_json);
+    }
+
+    function displayHTMLTable(results) {
+        var table = "<table class='table'>";
+        var data = results.data;
+
+        for (i = 0; i < data.length; i++) {
+            table += "<tr>";
+            var row = data[i];
+            var cells = row.join(",").split(",");
+
+            for (j = 0; j < cells.length; j++) {
+                table += "<td>";
+                table += cells[j];
+                table += "</th>";
+            }
+            table += "</tr>";
+        }
+        table += "</table>";
+        $("#parsed_csv_list").html(table);
+    }
+
+</script>
